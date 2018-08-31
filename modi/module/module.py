@@ -13,6 +13,12 @@ class Module(object):
         self._modi = weakref.ref(modi)
         self._category = str()
         self._type = str()
+        self._topology = {
+            'right': None,
+            'up': None,
+            'left': None,
+            'down': None
+        }
 
     @property
     def id(self):
@@ -29,6 +35,26 @@ class Module(object):
     @property
     def type(self):
         return self._type
+
+    @property
+    def topology(self):
+        return self._topology
+
+    @property
+    def right(self):
+        return self._topology['right']
+
+    @property
+    def up(self):
+        return self._topology['up']
+
+    @property
+    def left(self):
+        return self._topology['left']
+
+    @property
+    def down(self):
+        return self._topology['down']
 
 class SetupModule(Module):
     def __init__(self, id, uuid, modi):

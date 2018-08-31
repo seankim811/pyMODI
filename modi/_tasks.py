@@ -42,12 +42,12 @@ class ReadDataTask(MODITask):
                 pass
 
 class ProcDataTask(MODITask):
-    categories = ["network", "input", "output"]
+    categories = ["setup", "input", "output"]
 
     types = {
-        "network": ["usb", "usb/wifi/ble"],
-        "input": ["env", "gyro", "mic", "button", "dial", "ultrasonic", "ir"],
-        "output": ["display", "motor", "led", "speaker"]
+        "setup": ["network", ],
+        "input": ["env", "gyro", "mic", "button", "dial", "ultrasonic", "ir", ],
+        "output": ["display", "motor", "led", "speaker", ]
         }
 
     def __init__(self, modi):
@@ -55,7 +55,7 @@ class ProcDataTask(MODITask):
 
     def run(self):
         modi = self._modi()
-        pool = ThreadPool(10)
+        pool = ThreadPool(9)
 
         while not self.stopped():
             try:
@@ -71,7 +71,8 @@ class ProcDataTask(MODITask):
             0x00: self._update_health,
             0x0A: self._update_health,
             0x05: self._update_modules,
-            0x1F: self._update_property
+            0x07: self._update_topology,
+            0x1F: self._update_property,
         }.get(cmd, lambda _: None)
 
     def _update_health(self, msg):
@@ -86,15 +87,6 @@ class ProcDataTask(MODITask):
 
         if not modi._ids[id]['uuid']:
             modi.write(md_cmd.request_uuid(id))
-
-        for id, info in list(modi._ids.items()):
-            if time_ms - info['timestamp'] > 3500:
-                del modi._ids[id]
-
-                module = next((module for module in modi.modules if module.uuid == info['uuid']), None)
-
-                if module:
-                    modi._modules.remove(module)
  
     def _update_modules(self, msg):
         modi = self._modi()
@@ -131,6 +123,7 @@ class ProcDataTask(MODITask):
 
             for property_type in module.property_types:
                 modi.write(md_cmd.get_property(module.id, property_type.value))
+                modi.write(md_cmd.request_topology(module.id))
 
     def _init_module(self, type):
         return {
@@ -143,10 +136,46 @@ class ProcDataTask(MODITask):
             "led": led.Led,
             "mic": mic.Mic,
             "motor": motor.Motor,
+            "network": network.Network, 
             "speaker": speaker.Speaker,
-            "ultrasonic": ultrasonic.Ultrasonic
+            "ultrasonic": ultrasonic.Ultrasonic,
         }.get(type, lambda _: None)
     
+    def _update_topology(self, msg):
+        modi = self._modi()
+
+        id = msg['s']
+
+        decoded = bytearray(base64.b64decode(msg['b']))
+        topology_data = [decoded[i*2:i*2+2] for i in range(int(len(decoded) / 2))]
+
+        module = next((module for module in modi.modules if module.id == id), None)
+
+        peripherals = list()
+        for chunk in topology_data:
+            peripheral_id = (chunk[1] << 8) + chunk[0]
+            peripherals.append(next((module for module in modi.modules if module.id == peripheral_id), None))
+
+        if module:
+            for idx, direction in enumerate(module._topology.keys()):
+                peripheral = peripherals[idx]
+                peripheral_orig = module._topology[direction]
+
+                module._topology[direction] = peripheral
+
+                if peripheral_orig != None and peripheral == None:
+                    del modi._ids[peripheral_orig.id]
+
+                    module = next((module for module in modi.modules if module.uuid == peripheral_orig.uuid), None)
+
+                    if module:
+                        modi._modules.remove(module)
+                
+                #if peripheral != None and list(peripheral.topology.values())[(idx + 2) % 4] is not module:
+                #   modi.write(md_cmd.request_topology(peripheral.id))
+        #else:
+        #    modi.write(md_cmd.request_uuid(id))
+            
     def _update_property(self, msg):
         modi = self._modi()
 

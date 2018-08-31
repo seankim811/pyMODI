@@ -65,6 +65,8 @@ class MODI:
             thread.daemon = True
             thread.start()
             self._threads.append(thread)
+
+        self.write(md_cmd.request_topology(network=True))
         
     def open(self):
         """Open port.

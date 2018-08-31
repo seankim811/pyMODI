@@ -40,6 +40,17 @@ def request_uuid(id):
 
     return json.dumps(msg, separators=(',', ':'))
 
+def request_topology(id=None, network=False):
+    msg = dict()
+
+    msg['c'] = 0x07 if not network else 0x2A
+    msg['s'] = 0
+    msg['d'] = id if id else 0xFFF
+    msg['b'] = ""
+    msg['l'] = 0
+
+    return json.dumps(msg, separators=(',', ':'))
+
 def module_state(id, state):
     if type(state) is ModuleState:
         msg = dict()
