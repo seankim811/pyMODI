@@ -56,6 +56,7 @@ class MODI:
 
         else:
             self._serial = serial.Serial(port)
+            print( "Ok found the network module.")
 
         self._threads = list()
         tasks = [ReadDataTask, ProcDataTask, WriteDataTask]
